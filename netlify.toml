@@ -1,2 +1,6 @@
 [build]
+  # Netlify가 임의로 npm 혹은 다른 빌드 스크립트를 실행하지 못하게 설정
   command = ""
+  
+  # Netlify UI에 설정된 기본값(dist 폴더 등)을 덮어쓰고, 최상위 루트 폴더(.) 자체를 배포 타겟으로 강제 지정
+  publish = "."
