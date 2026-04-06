@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 퀀트 데스크 - 주식 포트폴리오 관리</title>
+    <!-- 미려한 UI를 위해 구글 폰트(Pretendard 느낌의 Roboto/Inter 조합) 및 아이콘 사용 -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* 
+         * 1. CSS 변수 설정 (테마 및 UI 일관성 유지)
+         * - 라이트 모드 기반 모던하고 신뢰감 있는 색상 테마 적용
+         */
+        :root {
+            --primary: #2563eb;         /* 파란색 계열, 금융/신뢰감을 줌 */
+            --primary-hover: #1d4ed8;
+            --bg-color: #f1f5f9;        /* 배경색 */
+            --surface: #ffffff;         /* 카드 배경 지정 */
+            --text-main: #0f172a;       /* 주 텍스트 */
+            --text-muted: #64748b;      /* 보조 텍스트 */
+            --border-color: #e2e8f0;    /* 경계선 */
+            --success: #16a34a;         /* 수익 (초록) */
+            --success-bg: #dcfce7;
+            --danger: #dc2626;          /* 손실 (빨강) */
+            --danger-bg: #fee2e2;
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --shadow-sm: 0 1px 3px 0 rgba(0,0,0,0.1);
+            --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1);
+            --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1);
+            --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+
+        /* 2. 전역 리셋 및 기본 설정 */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        /* 3. 헤더 영역 */
+        header {
+            background-color: var(--surface);
+            border-bottom: 1px solid var(--border-color);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+        .header-title { font-size: 1.25rem; font-weight: 700; color: var(--primary); display: flex; align-items: center; gap: 0.5rem; }
+        .btn {
+            display: inline-flex; justify-content: center; align-items: center; gap: 0.5rem;
+            padding: 0.5rem 1rem; border-radius: var(--radius-sm); border: none;
+            font-weight: 500; font-size: 0.875rem; cursor: pointer; transition: all 0.2s;
+            font-family: var(--font-family); outline: none;
+        }
+        .btn-primary { background-color: var(--primary); color: white; }
+        .btn-primary:hover { background-color: var(--primary-hover); }
+        .btn-outline { background-color: transparent; border: 1px solid var(--border-color); color: var(--text-main); }
+        .btn-outline:hover { background-color: var(--bg-color); }
+        .btn-danger { background-color: var(--danger); color: white; }
+        .btn-danger-outline { background-color: transparent; border: 1px solid var(--danger); color: var(--danger); }
+        .btn-danger-outline:hover { background-color: var(--danger-bg); }
+
+        /* 4. 레이아웃 구조 */
+        .container {
+            display: flex;
+            flex-grow: 1;
+            padding: 1.5rem;
+            gap: 1.5rem;
+            max-width: 1600px;
+            margin: 0 auto;
+            width: 100%;
+        }
+        .main-panel { flex: 3; display: flex; flex-direction: column; gap: 1.5rem; min-width: 0; }
+        .chat-panel { 
+            flex: 1; min-width: 350px; background: var(--surface); border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm); display: flex; flex-direction: column; overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+
+        /* 5. 요약 카드 (Summary Cards) */
+        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
+        .card {
+            background-color: var(--surface); padding: 1.25rem; border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm); border: 1px solid var(--border-color);
+        }
+        .summary-card { display: flex; flex-direction: column; gap: 0.5rem; }
+        .summary-title { font-size: 0.875rem; color: var(--text-muted); font-weight: 500; }
+        .summary-value { font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;}
+        
+        .text-success { color: var(--success); }
+        .text-danger { color: var(--danger); }
+        .badge {
+            padding: 0.25rem 0.5rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600;
+        }
+        .badge-success { background-color: var(--success-bg); color: var(--success); }
+        .badge-danger { background-color: var(--danger-bg); color: var(--danger); }
+
+        /* 6. 입력 폼 영역 */
+        .form-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;
+            align-items: end;
+        }
+        .form-group { display: flex; flex-direction: column; gap: 0.25rem; }
+        .form-group label { font-size: 0.875rem; font-weight: 500; color: var(--text-muted); }
+        .form-control {
+            padding: 0.625rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm);
+            font-size: 0.875rem; font-family: var(--font-family); color: var(--text-main);
+            transition: border-color 0.2s; outline: none; background-color: var(--surface);
+        }
+        .form-control:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
+        .form-textarea { resize: vertical; min-height: 40px; }
+
+        /* 7. 테이블 영역 */
+        .table-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+        .table-title { font-size: 1.125rem; font-weight: 600; }
+        .table-container { overflow-x: auto; border-radius: var(--radius-sm); border: 1px solid var(--border-color); }
+        table { width: 100%; border-collapse: collapse; min-width: 900px; text-align: right; }
+        th, td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border-color); font-size: 0.875rem; }
+        th { 
+            background-color: #f8fafc; color: var(--text-muted); font-weight: 600; 
+            cursor: pointer; transition: background 0.2s; user-select: none;
+        }
+        th:hover { background-color: #f1f5f9; }
+        th:first-child, td:first-child { text-align: left; } /* 종목명은 왼쪽 정렬 */
+        th:nth-child(2), td:nth-child(2) { text-align: center; } /* 섹터는 중앙 정렬 */
+        tbody tr:hover { background-color: #f8fafc; }
+        tfoot { background-color: #f8fafc; font-weight: 700; }
+        .delete-btn { color: var(--text-muted); cursor: pointer; transition: color 0.2s; border: none; background: none; }
+        .delete-btn:hover { color: var(--danger); }
+
+        /* 8. 채팅 레이아웃 */
+        .chat-header {
+            padding: 1rem; border-bottom: 1px solid var(--border-color); background-color: var(--surface);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .chat-header h3 { font-size: 1rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; color: var(--primary); }
+        .chat-body { flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 1rem; background: #fafafa;}
+        
+        .chat-message { max-width: 85%; padding: 0.875rem; border-radius: var(--radius-md); font-size: 0.875rem; line-height: 1.5; white-space: pre-wrap; }
+        .chat-user { align-self: flex-end; background-color: var(--primary); color: white; border-bottom-right-radius: 0; }
+        .chat-ai { align-self: flex-start; background-color: var(--surface); color: var(--text-main); border: 1px solid var(--border-color); border-bottom-left-radius: 0; box-shadow: var(--shadow-sm);}
+        
+        .chat-input-area { padding: 1rem; border-top: 1px solid var(--border-color); background-color: var(--surface); display: flex; gap: 0.5rem; }
+        .chat-input-area input { flex: 1; }
+        
+        .typing-indicator { font-size: 0.75rem; color: var(--text-muted); display: none; align-items: center; gap: 0.5rem; padding-left: 0.5rem;}
+        .spinner { animation: spin 1s linear infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        /* 9. 모달 (설정) */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); backdrop-filter: blur(2px);
+            display: none; justify-content: center; align-items: center; z-index: 100; opacity: 0; transition: opacity 0.2s;
+        }
+        .modal-overlay.active { display: flex; opacity: 1; }
+        .modal {
+            background: var(--surface); width: 100%; max-width: 400px; padding: 1.5rem;
+            border-radius: var(--radius-md); box-shadow: var(--shadow-lg); transform: translateY(-20px); transition: transform 0.2s;
+        }
+        .modal-overlay.active .modal { transform: translateY(0); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+        .modal-title { font-size: 1.125rem; font-weight: 600; }
+        .modal-close { cursor: pointer; color: var(--text-muted); background: none; border: none; font-size: 1.25rem; }
+
+        /* 모바일 반응형 */
+        @media (max-width: 1024px) {
+            .container { flex-direction: column; }
+            .chat-panel { height: 500px; }
+        }
+        @media (max-width: 640px) {
+            .form-grid { grid-template-columns: 1fr; }
+            .header-title span { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 헤더 -->
+    <header>
+        <div class="header-title">
+            <i class="fa-solid fa-chart-line"></i> <span>AI 포트폴리오 데스크</span>
+        </div>
+        <button class="btn btn-outline" id="btnOpenSettings">
+            <i class="fa-solid fa-gear"></i> 설정
+        </button>
+    </header>
+
+    <!-- 메인 컨테이너 -->
+    <div class="container">
+        
+        <!-- 좌측: 대시보드 (매수입력, 테이블, 요약) -->
+        <div class="main-panel">
+            
+            <!-- 1. 요약 카드 -->
+            <div class="summary-grid">
+                <div class="card summary-card">
+                    <span class="summary-title">총 매수금액</span>
+                    <span class="summary-value" id="valTotalBuy">0</span>
+                </div>
+                <div class="card summary-card">
+                    <span class="summary-title">총 평가금액</span>
+                    <span class="summary-value" id="valTotalEval">0</span>
+                </div>
+                <div class="card summary-card">
+                    <span class="summary-title">총 손익</span>
+                    <span class="summary-value" id="valTotalProfit">0</span>
+                </div>
+                <div class="card summary-card">
+                    <span class="summary-title">전체 수익률</span>
+                    <span class="summary-value" id="valTotalROI">
+                        0.00%
+                    </span>
+                </div>
+            </div>
+
+            <!-- 2. 매수 입력 폼 -->
+            <div class="card">
+                <h3 class="table-title" style="margin-bottom: 1rem;"><i class="fa-solid fa-plus-circle"></i> 신규 매수 내역 등록</h3>
+                <form id="formAddStock" class="form-grid">
+                    <div class="form-group">
+                        <label>종목명</label>
+                        <input type="text" id="iptName" class="form-control" required placeholder="예: 삼성전자">
+                    </div>
+                    <div class="form-group">
+                        <label>섹터</label>
+                        <select id="iptSector" class="form-control" required>
+                            <option value="기술">기술</option>
+                            <option value="금융">금융</option>
+                            <option value="헬스케어">헬스케어</option>
+                            <option value="에너지">에너지</option>
+                            <option value="소비재">소비재</option>
+                            <option value="산업재">산업재</option>
+                            <option value="기타">기타</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>매수일</label>
+                        <input type="date" id="iptDate" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>매수가</label>
+                        <input type="number" id="iptBuyPrice" class="form-control" step="0.01" required placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label>매수 수량</label>
+                        <input type="number" id="iptQty" class="form-control" step="1" required placeholder="0">
+                    </div>
+                    <div class="form-group">
+                        <label>현재가</label>
+                        <input type="number" id="iptCurrentPrice" class="form-control" step="0.01" required placeholder="0.00">
+                    </div>
+                    <div class="form-group" style="grid-column: 1 / -1;">
+                        <label>메모 (선택)</label>
+                        <textarea id="iptMemo" class="form-control form-textarea" placeholder="매수 사유 등 간단한 메모..."></textarea>
+                    </div>
+                    <div class="form-group" style="grid-column: 1 / -1; justify-self: end;">
+                        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> 포트폴리오 추가</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- 3. 포트폴리오 테이블 -->
+            <div class="card">
+                <div class="table-header">
+                    <h3 class="table-title"><i class="fa-solid fa-list"></i> 나의 보유 종목</h3>
+                    <div class="form-group" style="flex-direction: row; align-items: center; gap: 0.5rem;">
+                        <label style="margin: 0;">섹터 필터:</label>
+                        <select id="selFilterSector" class="form-control" style="width: 120px;">
+                            <option value="all">전체</option>
+                            <option value="기술">기술</option>
+                            <option value="금융">금융</option>
+                            <option value="헬스케어">헬스케어</option>
+                            <option value="에너지">에너지</option>
+                            <option value="소비재">소비재</option>
+                            <option value="산업재">산업재</option>
+                            <option value="기타">기타</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table id="portfolioTable">
+                        <thead>
+                            <tr>
+                                <th data-col="name">종목명 <i class="fa-solid fa-sort"></i></th>
+                                <th data-col="sector">섹터 <i class="fa-solid fa-sort"></i></th>
+                                <th data-col="date">매수일 <i class="fa-solid fa-sort"></i></th>
+                                <th data-col="buyPrice">매수가 <i class="fa-solid fa-sort"></i></th>
+                                <th data-col="currentPrice">현재가 <i class="fa-solid fa-sort"></i></th>
+                                <th data-col="qty">수량 <i class="fa-solid fa-sort"></i></th>
+                                <th data-col="totalBuy">매수금액 <i class="fa-solid fa-sort"></i></th>
+                                <th data-col="totalEval">평가금액 <i class="fa-solid fa-sort"></i></th>
+                                <th data-col="profit">손익 <i class="fa-solid fa-sort"></i></th>
+                                <th data-col="roi">수익률(%) <i class="fa-solid fa-sort"></i></th>
+                                <th>메모</th>
+                                <th>삭제</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyPortfolio">
+                            <!-- 로직을 통해 행 렌더링 -->
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="6" style="text-align: center;">총계</td>
+                                <td id="tfTotalBuy">0</td>
+                                <td id="tfTotalEval">0</td>
+                                <td id="tfTotalProfit">0</td>
+                                <td id="tfTotalROI" colspan="3" style="text-align: left;">0.00%</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- 우측: AI 채팅 패널 -->
+        <div class="chat-panel">
+            <div class="chat-header">
+                <h3><i class="fa-solid fa-robot"></i> Gemini 투자 상담사</h3>
+                <button class="btn btn-outline" style="padding: 0.25rem 0.5rem;" id="btnClearChat" title="대화 초기화">
+                    <i class="fa-solid fa-trash-can"></i>
+                </button>
+            </div>
+            
+            <div class="chat-body" id="chatBody">
+                <div class="chat-message chat-ai">안녕하세요! 현재 고객님의 포트폴리오 데이터를 기반으로 맞춤형 투자 상담을 제공해 드립니다. 궁금한 점을 물어보세요.</div>
+                <!-- 메시지 위치 -->
+            </div>
+            
+            <div class="typing-indicator" id="typingIndicator">
+                <i class="fa-solid fa-circle-notch spinner"></i> 답변을 생성하고 있습니다...
+            </div>
+
+            <form class="chat-input-area" id="formChat">
+                <input type="text" id="iptChat" class="form-control" placeholder="질문을 입력하세요..." required autocomplete="off">
+                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-paper-plane"></i></button>
+            </form>
+        </div>
+
+    </div>
+
+    <!-- API 설정 모달 -->
+    <div class="modal-overlay" id="modalSettings">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">환경 설정</h3>
+                <button class="modal-close" id="btnCloseModal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="form-group" style="margin-bottom: 1.5rem;">
+                <label>Gemini API Key</label>
+                <!-- 보안을 위해 password 타입 적용 -->
+                <input type="password" id="iptApiKey" class="form-control" placeholder="AI-...">
+                <small style="color: var(--text-muted); margin-top: 0.5rem; display: block; font-size: 0.75rem;">
+                    API 키는 현재 브라우저의 localStorage에만 안전하게 보관됩니다.
+                </small>
+            </div>
+            <button class="btn btn-primary" style="width: 100%;" id="btnSaveApiKey">저장하기</button>
+        </div>
+    </div>
+
+    <!-- 비즈니스 로직 스크립트 -->
+    <script>
+        /**
+         * [상태 관리(State Management)]
+         * 화면의 진실 공급원(Single Source of Truth) 역할. 모든 뷰는 이 state 기반으로 렌더링됨.
+         */
+        const state = {
+            portfolio: JSON.parse(localStorage.getItem('portfolioData')) || [],
+            chatHistory: JSON.parse(localStorage.getItem('chatHistory')) || [],
+            sort: { column: 'date', order: 'desc' }, // 기본 정렬: 최신 매수일
+            filter: 'all'
+        };
+
+        // DOM 요소 캐싱
+        const DOM = {
+            tbody: document.getElementById('tbodyPortfolio'),
+            formAdd: document.getElementById('formAddStock'),
+            selFilter: document.getElementById('selFilterSector'),
+            modalSettings: document.getElementById('modalSettings'),
+            iptApiKey: document.getElementById('iptApiKey'),
+            chatBody: document.getElementById('chatBody'),
+            formChat: document.getElementById('formChat'),
+            iptChat: document.getElementById('iptChat'),
+            typingIndicator: document.getElementById('typingIndicator'),
+        };
+
+        /**
+         * [포맷팅 유틸리티]
+         * 숫자를 가독성 있게 가공 (예: 1,000.00)
+         */
+        const formatMoney = (val) => Number(val).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+        const formatPercent = (val) => Number(val).toFixed(2) + '%';
+        
+        /**
+         * 색상 클래스 지정 유틸리티
+         * 0을 기준으로 초록(success), 빨강(danger) 구분
+         */
+        const getColorClass = (val) => {
+            if (val > 0) return 'text-success';
+            if (val < 0) return 'text-danger';
+            return '';
+        };
+
+        const getBadgeClass = (val) => {
+            if (val > 0) return 'badge badge-success';
+            if (val < 0) return 'badge badge-danger';
+            return 'badge';
+        };
+
+        /**
+         * [초기화 함수]
+         * 앱 실행 시 가장 먼저 실행. 기존 데이터 렌더링
+         */
+        function initApp() {
+            // 오늘 날짜를 기본값으로 세팅
+            document.getElementById('iptDate').valueAsDate = new Date();
+            
+            renderTable();
+            renderChatHistory();
+
+            // 이벤트 바인딩
+            DOM.formAdd.addEventListener('submit', handleAddStock);
+            DOM.selFilter.addEventListener('change', (e) => { state.filter = e.target.value; renderTable(); });
+            
+            // 테이블 헤더 클릭 정렬 (이벤트 위임)
+            document.querySelectorAll('th[data-col]').forEach(th => {
+                th.addEventListener('click', () => handleSort(th.getAttribute('data-col')));
+            });
+
+            // 설정 모달 팝업 이벤트
+            document.getElementById('btnOpenSettings').addEventListener('click', openSettings);
+            document.getElementById('btnCloseModal').addEventListener('click', closeSettings);
+            document.getElementById('btnSaveApiKey').addEventListener('click', saveApiKey);
+
+            // 채팅 이벤트
+            DOM.formChat.addEventListener('submit', handleSendChat);
+            document.getElementById('btnClearChat').addEventListener('click', clearChat);
+        }
+
+        /**
+         * [데이터 영속성]
+         * State 변경 시 localStorage에 반영
+         */
+        function saveState() {
+            localStorage.setItem('portfolioData', JSON.stringify(state.portfolio));
+            localStorage.setItem('chatHistory', JSON.stringify(state.chatHistory));
+        }
+
+        /**
+         * [테이블 및 요약 렌더링 코어 로직]
+         * 1. 렌더링에 앞서 필터링, 정렬 후 계산
+         * 2. tbody 초기화 및 재생성
+         * 3. 푸터와 상단 카드의 요약 수치 업데이트
+         */
+        function renderTable() {
+            let data = state.portfolio.map(item => {
+                const totalBuy = item.buyPrice * item.qty;
+                const totalEval = item.currentPrice * item.qty;
+                const profit = totalEval - totalBuy;
+                const roi = totalBuy > 0 ? (profit / totalBuy) * 100 : 0;
+                return { ...item, totalBuy, totalEval, profit, roi };
+            });
+
+            // 필터 적용
+            if (state.filter !== 'all') {
+                data = data.filter(item => item.sector === state.filter);
+            }
+
+            // 정렬 적용
+            const { column, order } = state.sort;
+            data.sort((a, b) => {
+                let valA = a[column];
+                let valB = b[column];
+                
+                // 문자열인 경우 분기
+                if (typeof valA === 'string') valA = valA.toLowerCase();
+                if (typeof valB === 'string') valB = valB.toLowerCase();
+
+                if (valA < valB) return order === 'asc' ? -1 : 1;
+                if (valA > valB) return order === 'asc' ? 1 : -1;
+                return 0;
+            });
+
+            DOM.tbody.innerHTML = '';
+            
+            let sumBuy = 0, sumEval = 0, sumProfit = 0;
+
+            // 행 생성
+            data.forEach(item => {
+                sumBuy += item.totalBuy;
+                sumEval += item.totalEval;
+                sumProfit += item.profit;
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong>${item.name}</strong></td>
+                    <td><span style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">${item.sector}</span></td>
+                    <td>${item.date}</td>
+                    <td>${formatMoney(item.buyPrice)}</td>
+                    <td>${formatMoney(item.currentPrice)}</td>
+                    <td>${formatMoney(item.qty)}</td>
+                    <td>${formatMoney(item.totalBuy)}</td>
+                    <td>${formatMoney(item.totalEval)}</td>
+                    <td class="${getColorClass(item.profit)}">${item.profit > 0 ? '+' : ''}${formatMoney(item.profit)}</td>
+                    <td><span class="${getBadgeClass(item.roi)}">${item.roi > 0 ? '+' : ''}${formatPercent(item.roi)}</span></td>
+                    <td style="color:var(--text-muted); font-size:0.8rem; max-width: 150px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;" title="${item.memo}">${item.memo}</td>
+                    <td>
+                        <button class="delete-btn" onclick="deleteStock(${item.id})"><i class="fa-solid fa-trash-can"></i></button>
+                    </td>
+                `;
+                DOM.tbody.innerHTML += tr.outerHTML; // innerHTML += 방식은 빠르지만 인라인 onclick이 필요함. (여기서는 간단한 구현으로)
+            });
+
+            const overallROI = sumBuy > 0 ? (sumProfit / sumBuy) * 100 : 0;
+
+            // 테이블 하단 총계 업데이트
+            document.getElementById('tfTotalBuy').innerText = formatMoney(sumBuy);
+            document.getElementById('tfTotalEval').innerText = formatMoney(sumEval);
+            document.getElementById('tfTotalProfit').innerText = formatMoney(sumProfit);
+            document.getElementById('tfTotalProfit').className = getColorClass(sumProfit);
+            document.getElementById('tfTotalROI').innerText = formatPercent(overallROI);
+            document.getElementById('tfTotalROI').className = getColorClass(overallROI);
+
+            // 상단 요약 카드 업데이트
+            document.getElementById('valTotalBuy').innerText = formatMoney(sumBuy);
+            document.getElementById('valTotalEval').innerText = formatMoney(sumEval);
+            
+            const elProfit = document.getElementById('valTotalProfit');
+            elProfit.innerText = (sumProfit > 0 ? '+' : '') + formatMoney(sumProfit);
+            elProfit.className = 'summary-value ' + getColorClass(sumProfit);
+
+            const elROI = document.getElementById('valTotalROI');
+            elROI.innerText = (overallROI > 0 ? '+' : '') + formatPercent(overallROI);
+            elROI.innerHTML = `<span class="${getBadgeClass(overallROI)} text-lg" style="font-size: 1.1rem; padding: 4px 10px;">${elROI.innerText}</span>`;
+        }
+
+        /**
+         * [데이터 추가 액션]
+         */
+        function handleAddStock(e) {
+            e.preventDefault();
+            const newItem = {
+                id: Date.now(), // 고유 ID 부여
+                name: document.getElementById('iptName').value.trim(),
+                sector: document.getElementById('iptSector').value,
+                date: document.getElementById('iptDate').value,
+                buyPrice: parseFloat(document.getElementById('iptBuyPrice').value),
+                qty: parseInt(document.getElementById('iptQty').value),
+                currentPrice: parseFloat(document.getElementById('iptCurrentPrice').value),
+                memo: document.getElementById('iptMemo').value.trim()
+            };
+
+            state.portfolio.push(newItem);
+            saveState();
+            renderTable();
+            DOM.formAdd.reset();
+            document.getElementById('iptDate').valueAsDate = new Date(); // 날짜는 리셋 시점으로 복구
+        }
+
+        /**
+         * [데이터 삭제 액션]
+         */
+        function deleteStock(id) {
+            if(!confirm('해당 매수 내역을 삭제하시겠습니까?')) return;
+            state.portfolio = state.portfolio.filter(item => item.id !== id);
+            saveState();
+            renderTable();
+        }
+
+        /**
+         * [정렬 핸들러]
+         */
+        function handleSort(col) {
+            if (state.sort.column === col) {
+                // 같은 컬럼 클릭 시 순서 반전
+                state.sort.order = state.sort.order === 'asc' ? 'desc' : 'asc';
+            } else {
+                state.sort.column = col;
+                state.sort.order = 'asc';
+            }
+            renderTable();
+        }
+
+        /**
+         * [모달 및 세팅 컨트롤]
+         */
+        function openSettings() {
+            DOM.iptApiKey.value = localStorage.getItem('geminiApiKey') || '';
+            DOM.modalSettings.classList.add('active');
+        }
+        function closeSettings() {
+            DOM.modalSettings.classList.remove('active');
+        }
+        function saveApiKey() {
+            const key = DOM.iptApiKey.value.trim();
+            if(key) {
+                localStorage.setItem('geminiApiKey', key);
+                alert('API 키가 저장되었습니다.');
+                closeSettings();
+            } else {
+                alert('API 키를 입력해주세요.');
+            }
+        }
+
+        /**
+         * [AI 채팅 렌더링 파트]
+         */
+        function renderChatHistory() {
+            // 최초 메시지(디폴트) 이외의 캐싱된 내역 반영
+            state.chatHistory.forEach(msg => {
+                appendChatBubble(msg.parts[0].text, msg.role === 'user');
+            });
+            scrollToBottom();
+        }
+
+        function appendChatBubble(text, isUser) {
+            const div = document.createElement('div');
+            div.className = `chat-message ${isUser ? 'chat-user' : 'chat-ai'}`;
+            div.innerText = text;
+            DOM.chatBody.appendChild(div);
+        }
+
+        function scrollToBottom() {
+            DOM.chatBody.scrollTop = DOM.chatBody.scrollHeight;
+        }
+
+        function clearChat() {
+            if(confirm('대화 내용을 모두 초기화할까요?')) {
+                state.chatHistory = [];
+                saveState();
+                
+                // 디폴트 인사말만 남기고 지우기
+                DOM.chatBody.innerHTML = '<div class="chat-message chat-ai">안녕하세요! 현재 고객님의 포트폴리오 데이터를 기반으로 맞춤형 투자 상담을 제공해 드립니다. 궁금한 점을 물어보세요.</div>';
+            }
+        }
+
+        /**
+         * [Gemini API 통신]
+         * - 포트폴리오 데이터를 시스템 프롬프트(System Instruction)로 주입하여 똑똑하게 답변하도록 유도
+         */
+        async function handleSendChat(e) {
+            e.preventDefault();
+            const text = DOM.iptChat.value.trim();
+            if (!text) return;
+
+            const apiKey = localStorage.getItem('geminiApiKey');
+            if (!apiKey) {
+                openSettings();
+                return;
+            }
+
+            // 사용자 메시지 표출
+            appendChatBubble(text, true);
+            DOM.iptChat.value = '';
+            scrollToBottom();
+            
+            // 로딩 UI 활성화
+            DOM.typingIndicator.style.display = 'flex';
+            DOM.iptChat.disabled = true;
+
+            try {
+                // 시스템 프롬프트 준비 (포트폴리오 주입)
+                const portfolioJSON = JSON.stringify(state.portfolio);
+                const systemInstruction = `당신은 훌륭하고 전문적인 투자 상담사(AI 퀀트 어드바이저)입니다. 
+다음은 사용자의 현재 포트폴리오 데이터입니다 (JSON 형식): ${portfolioJSON}
+이 데이터를 참고하여 사용자의 투자 전략, 리스크, 그리고 주식 시장에 대한 질문에 답변해주세요. 
+대답은 간결하고 핵심 위주로, 가독성 높은 한국어로 작성하세요.`;
+
+                // REST API 호출 용 페이로드 구성 
+                // 참고: gemini-2.0-flash 모델은 system_instruction 을 지원합니다.
+                const newHistory = [...state.chatHistory, { role: 'user', parts: [{ text }] }];
+                const payload = {
+                    system_instruction: { parts: [{ text: systemInstruction }] },
+                    contents: newHistory
+                };
+
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview:generateContent?key=${apiKey}`;
+                
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error?.message || 'API 요청 실패');
+                }
+
+                const data = await response.json();
+                const aiReply = data.candidates[0].content.parts[0].text;
+
+                // AI 답변 반영 및 상태 저장
+                appendChatBubble(aiReply, false);
+                state.chatHistory = [...newHistory, { role: 'model', parts: [{ text: aiReply }] }];
+                saveState();
+
+            } catch (error) {
+                console.error(error);
+                appendChatBubble(`오류가 발생했습니다: ${error.message}\n설정에서 API 키가 올바른지 확인해주세요.`, false);
+            } finally {
+                // 로딩 UI 비활성화
+                DOM.typingIndicator.style.display = 'none';
+                DOM.iptChat.disabled = false;
+                DOM.iptChat.focus();
+                scrollToBottom();
+            }
+        }
+
+        // 앱 구동
+        window.onload = initApp;
+    </script>
+</body>
+</html>
